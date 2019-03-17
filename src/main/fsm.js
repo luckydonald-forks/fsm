@@ -41,7 +41,7 @@ function drawArrow(c, x, y, angle) {
 }
 
 function canvasHasFocus() {
-	return (document.activeElement || document.body) == document.body;
+	return (document.activeElement || document.body) === document.body;
 }
 
 // https://stackoverflow.com/a/11361958/3423324#html5-canvas-ctx-filltext-wont-do-line-breaks
@@ -105,7 +105,8 @@ function drawText(c, text, x, y, angleOrNull, isSelected) {
 
 	// draw text and caret (round the coordinates so the caret falls on a pixel)
 	x = Math.round(x);
-	y = Math.round(y);
+	// noinspection JSSuspiciousNameCombination
+    y = Math.round(y);
 	var foo = wrapText(c, text, x, y + 6, 400, 18);
 	// c.fillText(text, x, y + 6);
 	if(isSelected && caretVisible && canvasHasFocus() && document.hasFocus()) {
@@ -155,12 +156,12 @@ function drawUsing(c) {
 
 	for(var i = 0; i < nodes.length; i++) {
 		c.lineWidth = 1;
-		c.fillStyle = c.strokeStyle = (nodes[i] == selectedObject) ? 'blue' : 'black';
+		c.fillStyle = c.strokeStyle = (nodes[i] === selectedObject) ? 'blue' : 'black';
 		nodes[i].draw(c);
 	}
 	for(var i = 0; i < links.length; i++) {
 		c.lineWidth = 1;
-		c.fillStyle = c.strokeStyle = (links[i] == selectedObject) ? 'blue' : 'black';
+		c.fillStyle = c.strokeStyle = (links[i] === selectedObject) ? 'blue' : 'black';
 		links[i].draw(c);
 	}
 	if(currentLink != null) {
@@ -192,7 +193,7 @@ function selectObject(x, y) {
 
 function snapNode(node) {
 	for(var i = 0; i < nodes.length; i++) {
-		if(nodes[i] == node) continue;
+		if(nodes[i] === node) continue;
 
 		if(Math.abs(node.x - nodes[i].x) < snapToPadding) {
 			node.x = nodes[i].x;
@@ -300,7 +301,7 @@ window.onload = function() {
 					currentLink = new TemporaryLink(originalClick, mouse);
 				}
 			} else {
-				if(targetNode == selectedObject) {
+				if(targetNode === selectedObject) {
 					currentLink = new SelfLink(selectedObject, mouse);
 				} else if(targetNode != null) {
 					currentLink = new Link(selectedObject, targetNode);
@@ -347,24 +348,24 @@ window.onload = function() {
 
 		updateStates();
 	};
-}
+};
 
 var shift = false;
 
 document.onkeydown = function(e) {
 	var key = crossBrowserKey(e);
 
-	if(key == 16) {
+	if(key === 16) {
 		shift = true;
 	} else if(!canvasHasFocus()) {
 		// don't read keystrokes when other things have focus
 		return true;
-	} else if(key == 8) { // backspace key
+	} else if(key === 8) { // backspace key
 		if(selectedObject != null && 'text' in selectedObject) {
 			// Remove the character before the caret
 			var textBeforeCaret = selectedObject.text.substring(0, caretIndex - 1);
 
-			// Get the text afte the caret
+			// Get the text after the caret
 			var textAfterCaret = selectedObject.text.substring(caretIndex);
 
 			// Set the selected objects text to the concatnation of the text before and after the caret
@@ -380,15 +381,15 @@ document.onkeydown = function(e) {
 
 		// backspace is a shortcut for the back button, but do NOT want to change pages
 		return false;
-	} else if(key == 46) { // delete key
+	} else if(key === 46) { // delete key
 		if(selectedObject != null) {
 			for(var i = 0; i < nodes.length; i++) {
-				if(nodes[i] == selectedObject) {
+				if(nodes[i] === selectedObject) {
 					nodes.splice(i--, 1);
 				}
 			}
 			for(var i = 0; i < links.length; i++) {
-				if(links[i] == selectedObject || links[i].node == selectedObject || links[i].nodeA == selectedObject || links[i].nodeB == selectedObject) {
+				if(links[i] === selectedObject || links[i].node === selectedObject || links[i].nodeA === selectedObject || links[i].nodeB === selectedObject) {
 					links.splice(i--, 1);
 				}
 			}
@@ -432,9 +433,9 @@ document.onkeyup = function(e) {
 	}
 
 	if(e.ctrlKey) {
-		if(key == 90) // ctrl z
+		if(key === 90) // ctrl z
 			getPreviousState();
-		else if(key == 89) // ctrl y
+		else if(key === 89) // ctrl y
 			getNextState();
 	}
 
@@ -476,12 +477,12 @@ document.oncopy = function(event) {
 document.onkeypress = function(e) {
 	// don't read keystrokes when other things have focus
 	var key = crossBrowserKey(e);
-	console.log("Key press", key, e.code, e);
+	// console.log("Key press", key, e.code, e);
 
 	if(!canvasHasFocus()) {
 		// don't read keystrokes when other things have focus
 		return true;
-	} else if((e.key.length == 1 || e.key == "Enter") && !e.metaKey && !e.altKey && !e.ctrlKey && selectedObject != null && 'text' in selectedObject) {
+	} else if((e.key.length === 1 || e.key === "Enter") && !e.metaKey && !e.ctrlKey && selectedObject != null && 'text' in selectedObject) {
 		// Add the letter at the caret
 		var newChar = String.fromCharCode(key);
 		if (key === 13) {
@@ -491,7 +492,7 @@ document.onkeypress = function(e) {
         addChar(newChar);
 		// don't let keys do their actions (like space scrolls down the page)
 		return false;
-	} else if(key == 8) {
+	} else if(key === 8) {
 		// backspace is a shortcut for the back button, but do NOT want to change pages
 		return false;
 	}
@@ -581,7 +582,7 @@ function importJsonFile() {
 }
 
 function importFileChange(e) {
-	var file = e.target.files[0]
+	var file = e.target.files[0];
 	var fileReader = new FileReader();
 
 	fileReader.onload = function(fileLoadedEvent) {
@@ -589,7 +590,7 @@ function importFileChange(e) {
 		draw();
 		updateStates();
 		e.target.value = "";
-	}
+	};
 
 	fileReader.readAsText(file, "UTF-8");
 }
