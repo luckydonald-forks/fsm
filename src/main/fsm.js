@@ -461,7 +461,18 @@ function addChar(addedChar) {
 document.onpaste = function(event) {
      var text = (event.clipboardData || window.clipboardData).getData('text');
      addChar(text);
-}
+};
+document.oncopy = function(event) {
+	console.log('copy', event, selectedObject);
+	if (selectedObject == null) {
+		return;
+	}
+	event.clipboardData.setData('text/plain', selectedObject.text);
+	event.preventDefault(); // We want to write our data to the clipboard, not data from any user selection
+	return false;
+};
+
+
 document.onkeypress = function(e) {
 	// don't read keystrokes when other things have focus
 	var key = crossBrowserKey(e);
