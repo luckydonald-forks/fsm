@@ -44,8 +44,49 @@ function canvasHasFocus() {
 	return (document.activeElement || document.body) == document.body;
 }
 
+// https://stackoverflow.com/a/11361958/3423324#html5-canvas-ctx-filltext-wont-do-line-breaks
+// http: //www.html5canvastutorials.com/tutorials/html5-canvas-wrap-text-tutorial/
+function wrapText(context, text, x, y, maxWidth, lineHeight) {
+	var lines = text.split("\n");
+	var x_i = 0;
+	var y_i = lines.length - 1;
+	var t_i = caretIndex;
+
+	for (var ii = 0; ii < lines.length; ii++) {
+
+		var line = "";
+		var words = lines[ii].split(" ");
+
+		for (var n = 0; n < words.length; n++) {
+			var testLine = line + words[n] + " ";
+			var metrics = context.measureText(testLine);
+			var testWidth = metrics.width;
+
+			if (testWidth > maxWidth) {
+				context.fillText(line, x, y);
+				line = words[n] + " ";
+				y += lineHeight;
+				y_i++;
+				if (x_i < t_i) {
+					t_i -= x_i;
+				}
+				t_i = x_i;
+			}
+			else {
+				line = testLine;
+				x_i = line.length;
+			}
+		}
+
+		context.fillText(line, x, y);
+		y += lineHeight;
+	}
+	return {x: x_i, y: y_i, px_y: y - lineHeight, px_x: x + testWidth};
+}
+
 function drawText(c, text, x, y, angleOrNull, isSelected) {
 	c.font = '20px "Times New Roman", serif';
+	// console.log('drawText', arguments, c.measureText(text));
 	var width = c.measureText(text).width;
 
 	// center the text
@@ -65,13 +106,14 @@ function drawText(c, text, x, y, angleOrNull, isSelected) {
 	// draw text and caret (round the coordinates so the caret falls on a pixel)
 	x = Math.round(x);
 	y = Math.round(y);
-	c.fillText(text, x, y + 6);
+	var foo = wrapText(c, text, x, y + 6, 400, 18);
+	// c.fillText(text, x, y + 6);
 	if(isSelected && caretVisible && canvasHasFocus() && document.hasFocus()) {
 		var textBeforeCaretWidth = c.measureText(text.substring(0, caretIndex)).width;
 		x += textBeforeCaretWidth;
 		c.beginPath();
-		c.moveTo(x, y - 10);
-		c.lineTo(x, y + 10);
+		c.moveTo(foo.px_x, foo.px_y - 10 - 6);
+		c.lineTo(foo.px_x, foo.px_y + 10 - 6);
 		c.stroke();
 	}
 }
@@ -176,6 +218,7 @@ window.onload = function() {
 	document.querySelectorAll(".canvasSizeInput").forEach(function(elem) {
 		elem.addEventListener("keypress", function(e) {
 			if(e.key === "Enter") {
+				console.log("Enter", e);
 				setCanvasSize();
 			}
 		});
@@ -281,7 +324,7 @@ window.onload = function() {
 				nodes[i].x += mouse.x - prevMouse.x;
 				nodes[i].y += mouse.y - prevMouse.y;
 			}
-			
+
 			draw();
 		}
 	};
@@ -320,10 +363,10 @@ document.onkeydown = function(e) {
 		if(selectedObject != null && 'text' in selectedObject) {
 			// Remove the character before the caret
 			var textBeforeCaret = selectedObject.text.substring(0, caretIndex - 1);
-			
+
 			// Get the text afte the caret
 			var textAfterCaret = selectedObject.text.substring(caretIndex);
-			
+
 			// Set the selected objects text to the concatnation of the text before and after the caret
 			selectedObject.text = textBeforeCaret + textAfterCaret;
 
@@ -364,6 +407,7 @@ document.onkeyup = function(e) {
 
 	// Left arrow key
 	if(key === 37){
+		e.preventDefault();
 		if(selectedObject && selectedObject.text){
 			if(--caretIndex < 0)
 				caretIndex = 0;
@@ -375,6 +419,7 @@ document.onkeyup = function(e) {
 
 	// Right arrow key
 	if(key === 39){
+		e.preventDefault();
 		if(selectedObject && selectedObject.text){
 			if(++caretIndex > selectedObject.text.length)
 				caretIndex = selectedObject.text.length;
@@ -397,15 +442,22 @@ document.onkeyup = function(e) {
 document.onkeypress = function(e) {
 	// don't read keystrokes when other things have focus
 	var key = crossBrowserKey(e);
+	console.log("Key press", key, e.code, e);
+
 	if(!canvasHasFocus()) {
 		// don't read keystrokes when other things have focus
 		return true;
-	} else if(key >= 0x20 && key <= 0x7E && !e.metaKey && !e.altKey && !e.ctrlKey && selectedObject != null && 'text' in selectedObject) {
+	} else if(((e.code !== 0 && e.key.length == 1) || e.key == "Enter") && !e.metaKey && !e.altKey && !e.ctrlKey && selectedObject != null && 'text' in selectedObject) {
 		// Add the letter at the caret
-		var newText = selectedObject.text.substring(0, caretIndex) + String.fromCharCode(key) + selectedObject.text.substring(caretIndex);
+		var newChar = String.fromCharCode(key);
+		if (key === 13) {
+			newChar = "\n";
+		}
+		var newText = selectedObject.text.substring(0, caretIndex) + newChar + selectedObject.text.substring(caretIndex);
+		console.log('text', newText);
 		caretIndex++;
 
-		// Parse for Latex short cuts and update the caret index appropriately 
+		// Parse for Latex short cuts and update the caret index appropriately
 		var formattedText = convertLatexShortcuts(newText);
 		caretIndex -= newText.length - formattedText.length;
 
@@ -415,7 +467,7 @@ document.onkeypress = function(e) {
 		// Draw the new text
 		resetCaret();
 		draw();
-		
+
 		// don't let keys do their actions (like space scrolls down the page)
 		return false;
 	} else if(key == 8) {
@@ -528,7 +580,7 @@ function setCanvasSize() {
 		for(var i = 0; i < nodes.length; i++)
 			nodes[i].x += diff;
 	}
-	
+
 	canvas.width = canvasWidthInput.value;
 	canvas.height = canvasHeightInput.value;
 	draw();
@@ -560,7 +612,7 @@ function getPreviousState() {
 
 function getNextState() {
 	statesIndex++;
-	
+
 	if(statesIndex >= states.length) {
 		statesIndex = states.length - 1;
 		return;
