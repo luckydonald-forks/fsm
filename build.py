@@ -7,7 +7,7 @@ def sources():
 	return [os.path.join(base, f) for base, folders, files in os.walk(path) for f in files if f.endswith('.js')]
 
 def build():
-	path = './www/fsm.js'
+	path = './fsm.js'
 	data = '\n'.join(open(file, 'r').read() for file in sources())
 	with open(path, 'w') as f:
 		f.write(data)

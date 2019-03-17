@@ -17,7 +17,6 @@ h1 {
 
 canvas {
 	display: block;
-	max-width: 800px;
 	background: white;
 	border-radius: 20px;
 	-moz-border-radius: 20px;
@@ -102,7 +101,22 @@ if (typeof btoa == 'undefined') {
 		<span class="error">Your browser does not support<br>the HTML5 &lt;canvas&gt; element</span>
 	</canvas>
 	<div>
-		<p class="center">Export as: <a href="javascript:saveAsPNG()">PNG</a> | <a href="javascript:saveAsSVG()">SVG</a> | <a href="javascript:saveAsLaTeX()">LaTeX</a></p>
+		<p class="center">
+			Export as: 
+			<a id="pngLink" onclick="saveAsPNG()" href="" >PNG</a> | 
+			<a href="javascript:saveAsSVG()">SVG</a> | 
+			<a href="javascript:saveAsLaTeX()">LaTeX</a> |
+			<a id="jsonLink" onclick="saveAsJson()" href="">JSON</a>
+		</p>
+		<button type="button" onclick="importJsonFile()">Import JSON File</button>
+		<input id="importFileInput" hidden type="file" onchange="importFileChange(event)">
+		<div>
+			<label for="canvasWidth">Width</label>
+			<input id="canvasWidth" name="canvasWidth" class="canvasSizeInput" type="number" min="800">
+			<label for="canvasHeight">Height</label>
+			<input id="canvasHeight" name="canvasHeight" class="canvasSizeInput" type="number" min="600">
+			<button type="button" onclick="setCanvasSize()">Set canvas size</button>
+		</div>
 		<textarea id="output"></textarea>
 		<p>The big white box above is the FSM designer.&nbsp; Here's how to use it:</p>
 		<ul>
@@ -110,12 +124,18 @@ if (typeof btoa == 'undefined') {
 			<li><b>Add an arrow:</b> shift-drag on the canvas</li>
 			<li><b>Move something:</b> drag it around</li>
 			<li><b>Delete something:</b> click it and press the delete key (not the backspace key)</li>
+			<li><b>Move viewport:</b> click on canvas background and move mouse around</li>
 		</ul><ul>
 			<li><b>Make accept state:</b> double-click on an existing state</li>
 			<li><b>Type numeric subscript:</b> put an underscore before the number (like "S_0")</li>
 			<li><b>Type greek letter:</b> put a backslash before it (like "\beta")</li>
+			<li><b>To undo/redo</b> ctrl+z/ctrl+y</li>
 		</ul>
 		<p>This was made in HTML5 and JavaScript using the canvas element.</p>
 	</div>
-	<p>Created by <a href="http://madebyevan.com/">Evan Wallace</a> in 2010</p>
+	<p>
+		<a href="https://github.com/Merfoo/fsm" target="_blank">Forked</a> in 2017 by 
+		<a href="http://merfoo.github.io/" target="_blank">Fauzi Kliman</a> 
+		off a project by <a href="http://madebyevan.com/">Evan Wallace</a> in 2010
+	</p>
 </body></html>

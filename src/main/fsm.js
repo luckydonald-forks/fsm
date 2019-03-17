@@ -44,8 +44,7 @@ function canvasHasFocus() {
 	return (document.activeElement || document.body) == document.body;
 }
 
-function drawText(c, originalText, x, y, angleOrNull, isSelected) {
-	text = convertLatexShortcuts(originalText);
+function drawText(c, text, x, y, angleOrNull, isSelected) {
 	c.font = '20px "Times New Roman", serif';
 	var width = c.measureText(text).width;
 
@@ -64,24 +63,22 @@ function drawText(c, originalText, x, y, angleOrNull, isSelected) {
 	}
 
 	// draw text and caret (round the coordinates so the caret falls on a pixel)
-	if('advancedFillText' in c) {
-		c.advancedFillText(text, originalText, x + width / 2, y, angleOrNull);
-	} else {
-		x = Math.round(x);
-		y = Math.round(y);
-		c.fillText(text, x, y + 6);
-		if(isSelected && caretVisible && canvasHasFocus() && document.hasFocus()) {
-			x += width;
-			c.beginPath();
-			c.moveTo(x, y - 10);
-			c.lineTo(x, y + 10);
-			c.stroke();
-		}
+	x = Math.round(x);
+	y = Math.round(y);
+	c.fillText(text, x, y + 6);
+	if(isSelected && caretVisible && canvasHasFocus() && document.hasFocus()) {
+		var textBeforeCaretWidth = c.measureText(text.substring(0, caretIndex)).width;
+		x += textBeforeCaretWidth;
+		c.beginPath();
+		c.moveTo(x, y - 10);
+		c.lineTo(x, y + 10);
+		c.stroke();
 	}
 }
 
 var caretTimer;
 var caretVisible = true;
+var caretIndex = 0;
 
 function resetCaret() {
 	clearInterval(caretTimer);
@@ -90,20 +87,27 @@ function resetCaret() {
 }
 
 var canvas;
+var canvasWidthInput;
+var canvasHeightInput;
 var nodeRadius = 30;
 var nodes = [];
 var links = [];
+var states = [];
+var statesIndex = -1;
 
-var cursorVisible = true;
 var snapToPadding = 6; // pixels
 var hitTargetPadding = 6; // pixels
 var selectedObject = null; // either a Link or a Node
 var currentLink = null; // a Link
 var movingObject = false;
+var movingAllObjects = false;
 var originalClick;
 
 function drawUsing(c) {
-	c.clearRect(0, 0, canvas.width, canvas.height);
+	c.beginPath();
+	c.fillStyle = "white";
+	c.rect(0, 0, canvas.width, canvas.height);
+	c.fill();
 	c.save();
 	c.translate(0.5, 0.5);
 
@@ -128,7 +132,6 @@ function drawUsing(c) {
 
 function draw() {
 	drawUsing(canvas.getContext('2d'));
-	saveBackup();
 }
 
 function selectObject(x, y) {
@@ -161,8 +164,22 @@ function snapNode(node) {
 
 window.onload = function() {
 	canvas = document.getElementById('canvas');
-	restoreBackup();
+	canvasWidthInput = document.getElementById("canvasWidth");
+	canvasHeightInput = document.getElementById("canvasHeight");
+
+	canvasWidthInput.value = canvas.width;
+	canvasHeightInput.value = canvas.height;
+
+	updateStates();
 	draw();
+
+	document.querySelectorAll(".canvasSizeInput").forEach(function(elem) {
+		elem.addEventListener("keypress", function(e) {
+			if(e.key === "Enter") {
+				setCanvasSize();
+			}
+		});
+	});
 
 	canvas.onmousedown = function(e) {
 		var mouse = crossBrowserRelativeMousePos(e);
@@ -180,9 +197,14 @@ window.onload = function() {
 					selectedObject.setMouseStart(mouse.x, mouse.y);
 				}
 			}
+
+			caretIndex = selectedObject.text.length;
 			resetCaret();
 		} else if(shift) {
 			currentLink = new TemporaryLink(mouse, mouse);
+		} else {
+			movingAllObjects = true;
+			canvas.style.cursor = "all-scroll";
 		}
 
 		draw();
@@ -210,10 +232,17 @@ window.onload = function() {
 			selectedObject.isAcceptState = !selectedObject.isAcceptState;
 			draw();
 		}
+
+		caretIndex = selectedObject.text.length;
+		updateStates();
 	};
 
+	var prevMouse = null;
+	var mouse = null;
+
 	canvas.onmousemove = function(e) {
-		var mouse = crossBrowserRelativeMousePos(e);
+		prevMouse = mouse;
+		mouse = crossBrowserRelativeMousePos(e);
 
 		if(currentLink != null) {
 			var targetNode = selectObject(mouse.x, mouse.y);
@@ -239,27 +268,41 @@ window.onload = function() {
 			draw();
 		}
 
-		if(movingObject) {
+		else if(movingObject) {
 			selectedObject.setAnchorPoint(mouse.x, mouse.y);
 			if(selectedObject instanceof Node) {
 				snapNode(selectedObject);
 			}
 			draw();
 		}
+
+		else if(movingAllObjects) {
+			for(var i = 0; i < nodes.length; i++) {
+				nodes[i].x += mouse.x - prevMouse.x;
+				nodes[i].y += mouse.y - prevMouse.y;
+			}
+			
+			draw();
+		}
 	};
 
 	canvas.onmouseup = function(e) {
+		canvas.style.cursor = "default";
 		movingObject = false;
+		movingAllObjects = false;
 
 		if(currentLink != null) {
 			if(!(currentLink instanceof TemporaryLink)) {
 				selectedObject = currentLink;
 				links.push(currentLink);
+				caretIndex = 0;
 				resetCaret();
 			}
 			currentLink = null;
 			draw();
 		}
+
+		updateStates();
 	};
 }
 
@@ -275,7 +318,19 @@ document.onkeydown = function(e) {
 		return true;
 	} else if(key == 8) { // backspace key
 		if(selectedObject != null && 'text' in selectedObject) {
-			selectedObject.text = selectedObject.text.substr(0, selectedObject.text.length - 1);
+			// Remove the character before the caret
+			var textBeforeCaret = selectedObject.text.substring(0, caretIndex - 1);
+			
+			// Get the text afte the caret
+			var textAfterCaret = selectedObject.text.substring(caretIndex);
+			
+			// Set the selected objects text to the concatnation of the text before and after the caret
+			selectedObject.text = textBeforeCaret + textAfterCaret;
+
+			// Decrement the caret index and reset the caret
+			if(--caretIndex < 0)
+				caretIndex = 0;
+
 			resetCaret();
 			draw();
 		}
@@ -303,9 +358,40 @@ document.onkeydown = function(e) {
 document.onkeyup = function(e) {
 	var key = crossBrowserKey(e);
 
-	if(key == 16) {
+	if(key === 16) {
 		shift = false;
 	}
+
+	// Left arrow key
+	if(key === 37){
+		if(selectedObject && selectedObject.text){
+			if(--caretIndex < 0)
+				caretIndex = 0;
+
+			resetCaret();
+			draw();
+		}
+	}
+
+	// Right arrow key
+	if(key === 39){
+		if(selectedObject && selectedObject.text){
+			if(++caretIndex > selectedObject.text.length)
+				caretIndex = selectedObject.text.length;
+
+			resetCaret();
+			draw();
+		}
+	}
+
+	if(e.ctrlKey) {
+		if(key == 90) // ctrl z
+			getPreviousState();
+		else if(key == 89) // ctrl y
+			getNextState();
+	}
+
+	updateStates();
 };
 
 document.onkeypress = function(e) {
@@ -315,10 +401,21 @@ document.onkeypress = function(e) {
 		// don't read keystrokes when other things have focus
 		return true;
 	} else if(key >= 0x20 && key <= 0x7E && !e.metaKey && !e.altKey && !e.ctrlKey && selectedObject != null && 'text' in selectedObject) {
-		selectedObject.text += String.fromCharCode(key);
+		// Add the letter at the caret
+		var newText = selectedObject.text.substring(0, caretIndex) + String.fromCharCode(key) + selectedObject.text.substring(caretIndex);
+		caretIndex++;
+
+		// Parse for Latex short cuts and update the caret index appropriately 
+		var formattedText = convertLatexShortcuts(newText);
+		caretIndex -= newText.length - formattedText.length;
+
+		// Update the selected objects text
+		selectedObject.text = formattedText;
+
+		// Draw the new text
 		resetCaret();
 		draw();
-
+		
 		// don't let keys do their actions (like space scrolls down the page)
 		return false;
 	} else if(key == 8) {
@@ -373,7 +470,9 @@ function saveAsPNG() {
 	drawUsing(canvas.getContext('2d'));
 	selectedObject = oldSelectedObject;
 	var pngData = canvas.toDataURL('image/png');
-	document.location.href = pngData;
+	var pngLink = document.getElementById("pngLink");
+	pngLink.download = "image.png";
+	pngLink.href = pngData.replace(/^data:image\/[^;]/, 'data:application/octet-stream');
 }
 
 function saveAsSVG() {
@@ -396,4 +495,78 @@ function saveAsLaTeX() {
 	selectedObject = oldSelectedObject;
 	var texData = exporter.toLaTeX();
 	output(texData);
+}
+
+function saveAsJson() {
+	var jsonLink = document.getElementById("jsonLink");
+	jsonLink.download = "exportedToJson.json";
+	jsonLink.href = 'data:application/json;charset=utf-8,'+ encodeURIComponent(exportJson());
+}
+
+function importJsonFile() {
+	document.getElementById("importFileInput").click();
+}
+
+function importFileChange(e) {
+	var file = e.target.files[0]
+	var fileReader = new FileReader();
+
+	fileReader.onload = function(fileLoadedEvent) {
+		importJson(fileLoadedEvent.target.result);
+		draw();
+		updateStates();
+		e.target.value = "";
+	}
+
+	fileReader.readAsText(file, "UTF-8");
+}
+
+function setCanvasSize() {
+	if(canvas.width !== canvasWidthInput.value) {
+		var diff = (canvasWidthInput.value - canvas.width) / 2;
+
+		for(var i = 0; i < nodes.length; i++)
+			nodes[i].x += diff;
+	}
+	
+	canvas.width = canvasWidthInput.value;
+	canvas.height = canvasHeightInput.value;
+	draw();
+	updateStates();
+}
+
+function updateStates() {
+	var newState = exportJson();
+
+	if(newState !== states[statesIndex]) {
+		statesIndex++;
+		states.length = statesIndex;
+		states.push(exportJson());
+	}
+}
+
+function getPreviousState() {
+	statesIndex--;
+
+	if(statesIndex < 0) {
+		statesIndex = 0;
+		return;
+	}
+
+	state = states[statesIndex];
+	importJson(state);
+	draw();
+}
+
+function getNextState() {
+	statesIndex++;
+	
+	if(statesIndex >= states.length) {
+		statesIndex = states.length - 1;
+		return;
+	}
+
+	state = states[statesIndex];
+	importJson(state);
+	draw();
 }

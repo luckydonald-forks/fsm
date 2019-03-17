@@ -1,10 +1,16 @@
-function restoreBackup() {
-	if(!localStorage || !JSON) {
+function importJson(jsonString) {
+	if(!JSON) {
 		return;
 	}
 
 	try {
-		var backup = JSON.parse(localStorage['fsm']);
+		var backup = JSON.parse(jsonString);
+		nodes = [];
+		links = [];
+		canvas.width = backup.canvasWidth || canvas.width;
+		canvas.height = backup.canvasHeight || canvas.height;
+		canvasWidthInput.value = canvas.width;
+		canvasHeightInput.value = canvas.height;
 
 		for(var i = 0; i < backup.nodes.length; i++) {
 			var backupNode = backup.nodes[i];
@@ -37,18 +43,20 @@ function restoreBackup() {
 			}
 		}
 	} catch(e) {
-		localStorage['fsm'] = '';
+		alert("Can't import that file!");
 	}
 }
 
-function saveBackup() {
-	if(!localStorage || !JSON) {
+function exportJson() {
+	if(!JSON) {
 		return;
 	}
 
 	var backup = {
 		'nodes': [],
 		'links': [],
+		'canvasWidth': canvas.width,
+		'canvasHeight': canvas.height
 	};
 	for(var i = 0; i < nodes.length; i++) {
 		var node = nodes[i];
@@ -94,5 +102,5 @@ function saveBackup() {
 		}
 	}
 
-	localStorage['fsm'] = JSON.stringify(backup);
+	return JSON.stringify(backup);
 }
