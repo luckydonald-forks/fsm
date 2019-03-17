@@ -989,6 +989,7 @@ document.onkeyup = function(e) {
 			resetCaret();
 			draw();
 		}
+		return false;
 	}
 
 	// Right arrow key
@@ -1001,6 +1002,7 @@ document.onkeyup = function(e) {
 			resetCaret();
 			draw();
 		}
+		return false;
 	}
 
 	if(e.ctrlKey) {
@@ -1013,6 +1015,27 @@ document.onkeyup = function(e) {
 	updateStates();
 };
 
+function addChar(addedChar) {
+    var newText = selectedObject.text.substring(0, caretIndex) + addedChar + selectedObject.text.substring(caretIndex);
+    console.log('text', newText);
+    caretIndex+= addedChar.length;
+
+    // Parse for Latex short cuts and update the caret index appropriately
+    var formattedText = convertLatexShortcuts(newText);
+    caretIndex -= newText.length - formattedText.length;
+
+    // Update the selected objects text
+    selectedObject.text = formattedText;
+
+    // Draw the new text
+    resetCaret();
+    draw();
+}
+
+document.onpaste = function(event) {
+     var text = (event.clipboardData || window.clipboardData).getData('text');
+     addChar(text);
+}
 document.onkeypress = function(e) {
 	// don't read keystrokes when other things have focus
 	var key = crossBrowserKey(e);
@@ -1021,27 +1044,14 @@ document.onkeypress = function(e) {
 	if(!canvasHasFocus()) {
 		// don't read keystrokes when other things have focus
 		return true;
-	} else if(((e.code !== 0 && e.key.length == 1) || e.key == "Enter") && !e.metaKey && !e.altKey && !e.ctrlKey && selectedObject != null && 'text' in selectedObject) {
+	} else if((e.key.length == 1 || e.key == "Enter") && !e.metaKey && !e.altKey && !e.ctrlKey && selectedObject != null && 'text' in selectedObject) {
 		// Add the letter at the caret
 		var newChar = String.fromCharCode(key);
 		if (key === 13) {
 			newChar = "\n";
 		}
-		var newText = selectedObject.text.substring(0, caretIndex) + newChar + selectedObject.text.substring(caretIndex);
-		console.log('text', newText);
-		caretIndex++;
 
-		// Parse for Latex short cuts and update the caret index appropriately
-		var formattedText = convertLatexShortcuts(newText);
-		caretIndex -= newText.length - formattedText.length;
-
-		// Update the selected objects text
-		selectedObject.text = formattedText;
-
-		// Draw the new text
-		resetCaret();
-		draw();
-
+        addChar(newChar);
 		// don't let keys do their actions (like space scrolls down the page)
 		return false;
 	} else if(key == 8) {
