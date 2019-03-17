@@ -86,8 +86,8 @@ function wrapText(context, text, x, y, maxWidth, lineHeight) {
 
 function drawText(c, text, x, y, angleOrNull, isSelected) {
 	c.font = '20px "Times New Roman", serif';
-	// console.log('drawText', arguments, c.measureText(text));
-	var width = c.measureText(text).width;
+	var width = text.split("\n").map(t => t.length).reduce((a, b) => a > b ? a : b);
+	// console.log('drawText', arguments, width);
 
 	// center the text
 	x -= width / 2;
