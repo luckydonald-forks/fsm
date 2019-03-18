@@ -46,51 +46,27 @@ function canvasHasFocus() {
 
 // https://stackoverflow.com/a/11361958/3423324#html5-canvas-ctx-filltext-wont-do-line-breaks
 // http: //www.html5canvastutorials.com/tutorials/html5-canvas-wrap-text-tutorial/
-function wrapText(context, text, x, y, maxWidth, lineHeight) {
-	var lines = text.split("\n");
-	var x_i = 0;
-	var y_i = lines.length - 1;
-	var t_i = caretIndex;
-
-	for (var ii = 0; ii < lines.length; ii++) {
-
-		var line = "";
-		var words = lines[ii].split(" ");
-
-		for (var n = 0; n < words.length; n++) {
-			var testLine = line + words[n] + " ";
-			var metrics = context.measureText(testLine);
-			var testWidth = metrics.width;
-
-			if (testWidth > maxWidth) {
-				context.fillText(line, x, y);
-				line = words[n] + " ";
-				y += lineHeight;
-				y_i++;
-				if (x_i < t_i) {
-					t_i -= x_i;
-				}
-				t_i = x_i;
-			}
-			else {
-				line = testLine;
-				x_i = line.length;
-			}
-		}
+function wrapText(context, lines, x, y, lineHeight) {
+	for (var i = 0; i < lines.length; i++) {
+		var line = lines[i];
+        var metrics = context.measureText(line);
+        var testWidth = metrics.width;
 
 		context.fillText(line, x, y);
 		y += lineHeight;
 	}
-	return {x: x_i, y: y_i, px_y: y - lineHeight, px_x: x + testWidth};
 }
 
 function drawText(c, text, x, y, angleOrNull, isSelected) {
 	c.font = '20px "Times New Roman", serif';
-	var width = text.split("\n").map(t => t.length).reduce((a, b) => a > b ? a : b);
-	// console.log('drawText', arguments, width);
+	var FONT_HEIGHT = 18;
+	var lines = text.split("\n");
+	var width = lines.map(t => t.length).reduce((a, b) => a > b ? a : b);
+	var height = FONT_HEIGHT * lines.length;
 
 	// center the text
-	x -= width / 2;
+	x -= width / 3;
+	y -= height / 3;
 
 	// position the text intelligently if given an angle
 	if(angleOrNull != null) {
@@ -107,14 +83,29 @@ function drawText(c, text, x, y, angleOrNull, isSelected) {
 	x = Math.round(x);
 	// noinspection JSSuspiciousNameCombination
     y = Math.round(y);
-	var foo = wrapText(c, text, x, y + 6, 400, 18);
+	var foo = wrapText(c, lines, x, y + 6, FONT_HEIGHT);
 	// c.fillText(text, x, y + 6);
 	if(isSelected && caretVisible && canvasHasFocus() && document.hasFocus()) {
-		var textBeforeCaretWidth = c.measureText(text.substring(0, caretIndex)).width;
-		x += textBeforeCaretWidth;
-		c.beginPath();
-		c.moveTo(foo.px_x, foo.px_y - 10 - 6);
-		c.lineTo(foo.px_x, foo.px_y + 10 - 6);
+	    var caret = {x: 0, y: 0, i: caretIndex};
+	    for (var iX = 0; iX < lines.length; iX++) {
+	        var line = lines[iX];
+            console.log('~ caret', caret, line);
+	        if (caret.i < line.length + 1) {
+	            caret.x = caret.i;
+	            caret.i = 0;
+                break;
+            }
+            caret.y++;  // more height
+            caret.i -= line.length;  // we can remove the used characters. Includes Linebreak "\n".
+            caret.i--;  // "\n"
+        }
+        console.log('… caret', caret);
+        caret.x = c.measureText(lines[caret.y].substring(0, caret.x)).width;
+        caret.y *= FONT_HEIGHT;
+        console.log('caret', caret);
+        c.beginPath();
+		c.moveTo(x + caret.x, y + caret.y - 10);
+		c.lineTo(x + caret.x, y + caret.y + 10);
 		c.stroke();
 	}
 }
@@ -473,6 +464,18 @@ document.oncopy = function(event) {
 	return false;
 };
 
+document.oncut = function(event) {
+	console.log('cut', event, selectedObject);
+	if (selectedObject == null) {
+		return;
+	}
+	event.clipboardData.setData('text/plain', selectedObject.text);
+	selectedObject.text = "";
+	caretIndex = 0;
+	addChar("");
+	event.preventDefault(); // We want to write our data to the clipboard, not data from any user selection
+	return false;
+};
 
 document.onkeypress = function(e) {
 	// don't read keystrokes when other things have focus
