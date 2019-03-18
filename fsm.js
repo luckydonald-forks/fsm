@@ -834,6 +834,7 @@ window.onload = function() {
 
 		if(selectedObject == null) {
 			selectedObject = new Node(mouse.x, mouse.y);
+			caretIndex = 0;
 			nodes.push(selectedObject);
 			resetCaret();
 			draw();
