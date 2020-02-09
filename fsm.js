@@ -590,6 +590,22 @@ function convertLatexShortcuts(text) {
 	return text;
 }
 
+function symbToLatex(text) {
+	// html greek characters
+	for(var i = 0; i < greekLetterNames.length; i++) {
+		var name = greekLetterNames[i];
+		text = text.replace(new RegExp(String.fromCharCode(913 + i + (i > 16)), 'g'), '\\' + name);
+		text = text.replace(new RegExp(String.fromCharCode(945 + i + (i > 16)), 'g'), '\\' + name.toLowerCase());
+	}
+
+	// subscripts
+	for(var i = 0; i < 10; i++) {
+		text = text.replace(new RegExp(String.fromCharCode(8320 + i), 'g'), '_' + i);
+	}
+
+	return text;
+}
+
 function textToXML(text) {
 	text = text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 	var result = '';
@@ -657,30 +673,38 @@ function drawText(c, text, x, y, angleOrNull, isSelected) {
 	x = Math.round(x);
 	// noinspection JSSuspiciousNameCombination
     y = Math.round(y);
-	var foo = wrapText(c, lines, x, y + 6, FONT_HEIGHT);
+	// var foo = wrapText(c, lines, x, y + 6, FONT_HEIGHT);
 	// c.fillText(text, x, y + 6);
-	if(isSelected && caretVisible && canvasHasFocus() && document.hasFocus()) {
-	    var caret = {x: 0, y: 0, i: caretIndex};
-	    for (var iX = 0; iX < lines.length; iX++) {
-	        var line = lines[iX];
-            console.log('~ caret', caret, line);
-	        if (caret.i < line.length + 1) {
-	            caret.x = caret.i;
-	            caret.i = 0;
-                break;
-            }
-            caret.y++;  // more height
-            caret.i -= line.length;  // we can remove the used characters. Includes Linebreak "\n".
-            caret.i--;  // "\n"
-        }
-        console.log('… caret', caret);
-        caret.x = c.measureText(lines[caret.y].substring(0, caret.x)).width;
-        caret.y *= FONT_HEIGHT;
-        console.log('caret', caret);
-        c.beginPath();
-		c.moveTo(x + caret.x, y + caret.y - 10);
-		c.lineTo(x + caret.x, y + caret.y + 10);
-		c.stroke();
+
+	let textPos = x - c.measureText(text).width / 2;
+	if('advancedFillText' in c) {
+		c.advancedFillText(text, symbToLatex(text), x + width / 2, y, angleOrNull);
+	} else {
+		var foo = wrapText(c, lines, textPos, y + 6, FONT_HEIGHT);
+		// c.fillText(text, textPos, y + 6);
+		if(isSelected && caretVisible && canvasHasFocus() && document.hasFocus()) {
+			var caret = {x: 0, y: 0, i: caretIndex};
+			for (var iX = 0; iX < lines.length; iX++) {
+				var line = lines[iX];
+				console.log('~ caret', caret, line);
+				if (caret.i < line.length + 1) {
+					caret.x = caret.i;
+					caret.i = 0;
+					break;
+				}
+				caret.y++;  // more height
+				caret.i -= line.length;  // we can remove the used characters. Includes Linebreak "\n".
+				caret.i--;  // "\n"
+			}
+			console.log('… caret', caret);
+			caret.x = c.measureText(lines[caret.y].substring(0, caret.x)).width;
+			caret.y *= FONT_HEIGHT;
+			console.log('caret', caret);
+			c.beginPath();
+			c.moveTo(textPos + caret.x, y + caret.y - 10);
+			c.lineTo(textPos + caret.x, y + caret.y + 10);
+			c.stroke();
+		}
 	}
 }
 
@@ -711,10 +735,12 @@ var movingObject = false;
 var movingAllObjects = false;
 var originalClick;
 
-function drawUsing(c) {
+function drawUsing(c, isCanvas = true) {
 	c.beginPath();
 	c.fillStyle = "white";
-	c.rect(0, 0, canvas.width, canvas.height);
+	if (isCanvas) {
+		c.rect(0, 0, canvas.width, canvas.height);
+	}
 	c.fill();
 	c.save();
 	c.translate(0.5, 0.5);
@@ -1143,7 +1169,7 @@ function saveAsLaTeX() {
 	var exporter = new ExportAsLaTeX();
 	var oldSelectedObject = selectedObject;
 	selectedObject = null;
-	drawUsing(exporter);
+	drawUsing(exporter, false);
 	selectedObject = oldSelectedObject;
 	var texData = exporter.toLaTeX();
 	output(texData);
